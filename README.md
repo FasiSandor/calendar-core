@@ -36,17 +36,16 @@ Minden esemény API kéréshez:
 - `PATCH /api/events/:id`
 - `DELETE /api/events/:id`
 
-## Supabase
+## Neon
 
-A `supabase/schema.sql` fájlt egyszer kell lefuttatni a központi Supabase projekt SQL Editorában.
+A központi adatbázis a meglévő **Szemelyes-Kozpont** Neon projektben kap külön `calendar_core` sémát.
 
 Szükséges Vercel környezeti változók:
 
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `DATABASE_URL`
 - `CALENDAR_CORE_API_KEY`
 
-A service role kulcs kizárólag szerveroldalon használható.
+A `DATABASE_URL` kizárólag szerveroldali környezeti változó.
 
 ## Következő lépés
 
