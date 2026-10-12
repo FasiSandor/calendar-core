@@ -10,27 +10,6 @@ export async function GET(req:NextRequest,{params}:{params:Promise<{id:string}>}
   try{
     const rows=await db()`select * from calendar_core.calendar_events where id=${id} limit 1`;
     if(!rows[0])return NextResponse.json({error:"not_found"},{status:404});
-    const g:any=await googleUpsert(rows[0]);
-    if(g?.ok&&g.google_event_id){
-      const synced=await db()`
-        update calendar_core.calendar_events set google_event_id=${String(g.google_event_id)},updated_at=now()
-        where id=${rows[0].id} returning *
-      `;
-      await db()`
-        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
-        values(${rows[0].id},'google',${String(g.google_event_id)},'primary',now(),'linked',
-          ${JSON.stringify({account_email:g.account_email||null,html_link:g.html_link||null})}::jsonb,now())
-        on conflict(event_id,provider) do update set
-          external_id=excluded.external_id,last_synced_at=now(),sync_state='linked',metadata=excluded.metadata,updated_at=now()
-      `;
-      return NextResponse.json(synced[0]||rows[0]);
-    }
-    await db()`
-      insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
-      values(${rows[0].id},'google',${String(rows[0].google_event_id||("pending:"+rows[0].id))},'primary',null,'error',
-        ${JSON.stringify({error:g?.error||"google_sync_failed"})}::jsonb,now())
-      on conflict(event_id,provider) do update set sync_state='error',metadata=excluded.metadata,updated_at=now()
-    `;
     return NextResponse.json(rows[0]);
   }catch(e:any){return NextResponse.json({error:e?.message||"database_error"},{status:500})}
 }
@@ -55,6 +34,30 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
       returning *
     `;
     if(!rows[0])return NextResponse.json({error:"not_found"},{status:404});
+    const g:any=await googleUpsert(rows[0]);
+    const sql=db();
+    if(g?.ok&&g.google_event_id){
+      const synced=await sql`
+        update calendar_core.calendar_events
+        set google_event_id=${String(g.google_event_id)},updated_at=now()
+        where id=${rows[0].id}
+        returning *
+      `;
+      await sql`
+        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+        values(${rows[0].id},'google',${String(g.google_event_id)},'primary',now(),'linked',
+          ${JSON.stringify({account_email:g.account_email||null,html_link:g.html_link||null})}::jsonb,now())
+        on conflict(event_id,provider) do update set
+          external_id=excluded.external_id,last_synced_at=now(),sync_state='linked',metadata=excluded.metadata,updated_at=now()
+      `;
+      return NextResponse.json(synced[0]||rows[0]);
+    }
+    await sql`
+      insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+      values(${rows[0].id},'google',${String(rows[0].google_event_id||("pending:"+rows[0].id))},'primary',null,'error',
+        ${JSON.stringify({error:g?.error||"google_sync_failed"})}::jsonb,now())
+      on conflict(event_id,provider) do update set sync_state='error',metadata=excluded.metadata,updated_at=now()
+    `;
     return NextResponse.json(rows[0]);
   }catch(e:any){return NextResponse.json({error:e?.message||"invalid_request"},{status:400})}
 }
