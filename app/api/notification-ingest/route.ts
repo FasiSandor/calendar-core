@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/lib/db";
-import {CalendarEventInput,eventRow} from "@/lib/events";
+import {CalendarEventInput} from "@/lib/events";
 
 const verifyUrl=()=>process.env.NOTIFICATION_CENTER_VERIFY_URL||
   "https://syzpkrypgcwiyzzzlzzi.supabase.co/functions/v1/notification-center";
