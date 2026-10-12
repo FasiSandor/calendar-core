@@ -6,6 +6,16 @@ import {googleUpsert} from "@/lib/google-sync";
 
 function out(row:any){return row||null}
 async function syncGoogle(sql:any,row:any){
+  if(row?.source_app==="google"&&row?.google_event_id){
+    await sql`
+      insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+      values(${row.id},'google',${String(row.google_event_id)},'primary',now(),'linked',
+        ${JSON.stringify({origin:"google"})}::jsonb,now())
+      on conflict(event_id,provider) do update set
+        external_id=excluded.external_id,last_synced_at=now(),sync_state='linked',metadata=excluded.metadata,updated_at=now()
+    `;
+    return row;
+  }
   const g:any=await googleUpsert(row);
   if(g?.ok&&g.google_event_id){
     const updated=await sql`
