@@ -26,7 +26,9 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
         category=${r.category}, location=${r.location}, note=${r.note},
         source_app=${r.source_app}, source_record_id=${r.source_record_id},
         google_event_id=${r.google_event_id}, dedupe_key=${r.dedupe_key},
-        metadata=${JSON.stringify(r.metadata)}::jsonb
+        metadata=${JSON.stringify(r.metadata)}::jsonb,
+        updated_at=now(),
+        version=version+1
       where id=${id} and status='active'
       returning *
     `;
@@ -41,7 +43,7 @@ export async function DELETE(req:NextRequest,{params}:{params:Promise<{id:string
   try{
     const rows=await db()`
       update calendar_core.calendar_events
-      set status='deleted',deleted_at=now()
+      set status='deleted',deleted_at=now(),updated_at=now(),version=version+1
       where id=${id} and status='active'
       returning id
     `;
