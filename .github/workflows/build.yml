@@ -2,7 +2,7 @@ name: build
 
 on:
   push:
-    branches: [main]
+    branches: [main, notification-sync-fix]
   pull_request:
 
 jobs:

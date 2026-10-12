@@ -1,6 +1,6 @@
 import {NextRequest,NextResponse} from "next/server";
 import {db} from "@/lib/db";
-import {CalendarEventInput,eventRow} from "@/lib/events";
+import {CalendarEventInput} from "@/lib/events";
 
 const verifyUrl=()=>process.env.NOTIFICATION_CENTER_VERIFY_URL||
   "https://syzpkrypgcwiyzzzlzzi.supabase.co/functions/v1/notification-center";
@@ -93,36 +93,19 @@ export async function POST(req:NextRequest){
       sourceUrl,
       metadata:payload
     };
-    const r=eventRow(input);
 
-    const exact=await sql`
-      select * from calendar_core.calendar_events
-      where source_app=${sourceApp} and source_record_id=${itemId} and status='active'
-      limit 1
-    `;
-    let event:any=exact[0];
-
-    if(!event){
-      const dup=await sql`
-        select * from calendar_core.calendar_events
-        where dedupe_key=${r.dedupe_key} and status='active'
-        limit 1
-      `;
-      event=dup[0];
-    }
-
-    if(!event){
-      const created=await sql`
-        insert into calendar_core.calendar_events
-          (title,starts_at,ends_at,event_date,all_day,timezone,category,location,note,source_app,source_record_id,dedupe_key,metadata)
-        values(
-          ${r.title},${r.starts_at},${r.ends_at},${r.event_date},${r.all_day},${r.timezone},
-          ${r.category},${r.location},${r.note},${r.source_app},${r.source_record_id},${r.dedupe_key},
-          ${JSON.stringify(r.metadata)}::jsonb
-        )
-        returning *
-      `;
-      event=created[0];
+    const coreKey=process.env.CALENDAR_CORE_API_KEY||"";
+    if(!coreKey)return NextResponse.json({error:"core_not_configured"},{status:503});
+    const target=new URL("/api/events",req.url);
+    const coreRes=await fetch(target,{
+      method:"POST",
+      headers:{"content-type":"application/json","x-calendar-core-key":coreKey},
+      body:JSON.stringify(input),
+      cache:"no-store"
+    });
+    const event=await coreRes.json().catch(()=>null);
+    if(!coreRes.ok||!event?.id){
+      return NextResponse.json({error:event?.error||"core_event_failed"},{status:coreRes.status||502});
     }
 
     await sql`
