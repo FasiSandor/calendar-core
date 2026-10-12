@@ -2,6 +2,7 @@ import {NextRequest,NextResponse} from "next/server";
 import {createHash} from "crypto";
 import {isAuthorized} from "@/lib/auth";
 import {db} from "@/lib/db";
+import {googleUpsert} from "@/lib/google-sync";
 
 function clean(v:any,max=4000){return String(v??"").trim().slice(0,max)}
 function contentKey(x:any){
@@ -119,10 +120,34 @@ export async function PATCH(req:NextRequest){
       values(${event.id},${s.source_app},${s.source_record_id},${s.source_url},${JSON.stringify(s.payload||{})}::jsonb)
       on conflict(source_app,source_record_id) do update set event_id=excluded.event_id,source_url=excluded.source_url,source_payload=excluded.source_payload
     `;
+    const g:any=await googleUpsert(event);
+    if(g?.ok&&g.google_event_id){
+      const synced=await sql`
+        update calendar_core.calendar_events
+        set google_event_id=${String(g.google_event_id)},updated_at=now()
+        where id=${event.id}
+        returning *
+      `;
+      event=synced[0]||event;
+      await sql`
+        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+        values(${event.id},'google',${String(g.google_event_id)},'primary',now(),'linked',
+          ${JSON.stringify({account_email:g.account_email||null,html_link:g.html_link||null})}::jsonb,now())
+        on conflict(event_id,provider) do update set
+          external_id=excluded.external_id,last_synced_at=now(),sync_state='linked',metadata=excluded.metadata,updated_at=now()
+      `;
+    }else{
+      await sql`
+        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+        values(${event.id},'google',${String(event.google_event_id||("pending:"+event.id))},'primary',null,'error',
+          ${JSON.stringify({error:g?.error||"google_sync_failed"})}::jsonb,now())
+        on conflict(event_id,provider) do update set sync_state='error',metadata=excluded.metadata,updated_at=now()
+      `;
+    }
     const decided=await sql`
       update calendar_core.calendar_suggestions set status='accepted',accepted_event_id=${event.id},decided_at=now()
       where id=${id} returning *
     `;
-    return NextResponse.json({suggestion:decided[0],event});
+    return NextResponse.json({suggestion:decided[0],event,googleSync:g});
   }catch(e:any){return NextResponse.json({error:e?.message||"database_error"},{status:500})}
 }
