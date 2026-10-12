@@ -105,3 +105,41 @@ create table if not exists calendar_core.calendar_suggestions (
 
 create index if not exists calendar_suggestions_pending_idx
   on calendar_core.calendar_suggestions(status,created_at desc);
+
+
+create table if not exists calendar_core.watch_groups (
+  id uuid primary key default gen_random_uuid(),
+  group_key text not null unique,
+  title text not null,
+  source_type text not null default 'web',
+  watch_type text,
+  default_mode text not null default 'review' check (default_mode in ('auto','review','watch')),
+  status text not null default 'active' check (status in ('active','paused')),
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists calendar_core.watch_sources (
+  id uuid primary key default gen_random_uuid(),
+  group_id uuid references calendar_core.watch_groups(id) on delete cascade,
+  kind text not null check (kind in ('email','email_domain','person','messenger_group','facebook_group','web','institution','other')),
+  label text not null,
+  match_value text,
+  source_url text,
+  mode text not null default 'review' check (mode in ('auto','review','watch')),
+  status text not null default 'active' check (status in ('active','paused')),
+  origin text not null default 'manual',
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists watch_sources_unique_match
+  on calendar_core.watch_sources(kind,coalesce(match_value,''),coalesce(source_url,''),coalesce(group_id::text,''));
+
+create index if not exists watch_sources_active_idx
+  on calendar_core.watch_sources(status,kind);
+
+create index if not exists watch_sources_group_idx
+  on calendar_core.watch_sources(group_id,status);
