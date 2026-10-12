@@ -2,8 +2,36 @@ import {NextRequest,NextResponse} from "next/server";
 import {isAuthorized} from "@/lib/auth";
 import {db} from "@/lib/db";
 import {CalendarEventInput,eventRow} from "@/lib/events";
+import {googleUpsert} from "@/lib/google-sync";
 
 function out(row:any){return row||null}
+async function syncGoogle(sql:any,row:any){
+  const g:any=await googleUpsert(row);
+  if(g?.ok&&g.google_event_id){
+    const updated=await sql`
+      update calendar_core.calendar_events
+      set google_event_id=${String(g.google_event_id)},updated_at=now()
+      where id=${row.id}
+      returning *
+    `;
+    await sql`
+      insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+      values(${row.id},'google',${String(g.google_event_id)},'primary',now(),'linked',
+        ${JSON.stringify({account_email:g.account_email||null,html_link:g.html_link||null})}::jsonb,now())
+      on conflict(event_id,provider) do update set
+        external_id=excluded.external_id,calendar_id=excluded.calendar_id,last_synced_at=now(),sync_state='linked',
+        metadata=excluded.metadata,updated_at=now()
+    `;
+    return updated[0]||row;
+  }
+  await sql`
+    insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+    values(${row.id},'google',${String(row.google_event_id||("pending:"+row.id))},'primary',null,'error',
+      ${JSON.stringify({error:g?.error||"google_sync_failed"})}::jsonb,now())
+    on conflict(event_id,provider) do update set sync_state='error',metadata=excluded.metadata,updated_at=now()
+  `;
+  return row;
+}
 
 export async function GET(req:NextRequest){
   if(!isAuthorized(req))return NextResponse.json({error:"unauthorized"},{status:401});
@@ -49,7 +77,8 @@ export async function POST(req:NextRequest){
           where id=${rows[0].id}
           returning *
         `;
-        return NextResponse.json(out(updated[0]),{status:200});
+        const synced=await syncGoogle(sql,updated[0]);
+        return NextResponse.json(out(synced),{status:200});
       }
     }
 
@@ -75,7 +104,8 @@ export async function POST(req:NextRequest){
         on conflict(source_app,source_record_id) do nothing
       `;
     }
-    return NextResponse.json(out(created[0]),{status:201});
+    const synced=await syncGoogle(sql,created[0]);
+    return NextResponse.json(out(synced),{status:201});
   }catch(e:any){
     return NextResponse.json({error:e?.message||"invalid_request"},{status:400});
   }
