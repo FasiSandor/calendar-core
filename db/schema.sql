@@ -74,19 +74,3 @@ create table if not exists calendar_core.calendar_sync_links (
   unique(event_id,provider)
 );
 
-create or replace function calendar_core.bump_calendar_event_version()
-returns trigger
-language plpgsql
-as $$
-begin
-  new.updated_at = now();
-  new.version = old.version + 1;
-  return new;
-end;
-$$;
-
-drop trigger if exists calendar_events_bump_version on calendar_core.calendar_events;
-
-create trigger calendar_events_bump_version
-before update on calendar_core.calendar_events
-for each row execute function calendar_core.bump_calendar_event_version();
