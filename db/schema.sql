@@ -74,3 +74,34 @@ create table if not exists calendar_core.calendar_sync_links (
   unique(event_id,provider)
 );
 
+
+
+create table if not exists calendar_core.calendar_suggestions (
+  id uuid primary key default gen_random_uuid(),
+  source_app text not null,
+  source_record_id text not null,
+  source_url text,
+  title text not null,
+  summary text,
+  event_date date,
+  starts_at timestamptz,
+  ends_at timestamptz,
+  all_day boolean not null default false,
+  timezone text not null default 'Europe/Budapest',
+  location text,
+  confidence text not null default 'uncertain' check (confidence in ('probable','uncertain')),
+  status text not null default 'pending' check (status in ('pending','accepted','rejected')),
+  payload jsonb not null default '{}'::jsonb,
+  accepted_event_id uuid references calendar_core.calendar_events(id) on delete set null,
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  unique(source_app,source_record_id),
+  constraint calendar_suggestions_time_shape check (
+    (all_day = true and event_date is not null)
+    or
+    (all_day = false and starts_at is not null)
+  )
+);
+
+create index if not exists calendar_suggestions_pending_idx
+  on calendar_core.calendar_suggestions(status,created_at desc);
