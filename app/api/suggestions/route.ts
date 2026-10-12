@@ -97,12 +97,16 @@ export async function PATCH(req:NextRequest){
       event=dup[0];
     }
     if(!event){
+      const requestedCategory=String(s.payload?.category||"");
+      const category=["work","personal","family","sport"].includes(requestedCategory)
+        ?requestedCategory
+        :(s.source_app==="watch"?"work":"personal");
       const created=await sql`
         insert into calendar_core.calendar_events
           (title,starts_at,ends_at,event_date,all_day,timezone,category,location,note,source_app,source_record_id,dedupe_key,metadata)
         values(
           ${s.title},${s.all_day?null:s.starts_at},${s.all_day?null:endsAt},${s.all_day?s.event_date:null},
-          ${s.all_day},${s.timezone||"Europe/Budapest"},'personal',${s.location||""},${s.summary||""},
+          ${s.all_day},${s.timezone||"Europe/Budapest"},${category},${s.location||""},${s.summary||""},
           ${s.source_app},${s.source_record_id},${key},
           ${JSON.stringify({suggestionId:id,sourceUrl:s.source_url,...(s.payload||{})})}::jsonb
         )
