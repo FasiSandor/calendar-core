@@ -40,7 +40,11 @@ export async function POST(req:NextRequest){
     if(allDay&&!/^\d{4}-\d{2}-\d{2}$/.test(eventDate||""))return NextResponse.json({error:"invalid_date"},{status:400});
     if(!allDay&&!startsAt)return NextResponse.json({error:"invalid_start"},{status:400});
     const title=txt(x.title,500)||"Google-esemény";
-    const category=["work","personal","family","sport"].includes(x.category)?x.category:"personal";
+    // Google has no equivalent of Core's calendar categories. Preserve the
+    // category assigned by the originating app when its event returns via Google.
+    const category=event&&event.source_app!=="google"
+      ?event.category
+      :["work","personal","family","sport"].includes(x.category)?x.category:"personal";
     if(event){
       const r=await sql`
         update calendar_core.calendar_events set
