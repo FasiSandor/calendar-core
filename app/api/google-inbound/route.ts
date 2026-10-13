@@ -45,6 +45,7 @@ export async function POST(req:NextRequest){
       ?new Date(current.metadata.google_inbound_updated):null;
     if(stamp&&previous&&!Number.isNaN(previous.getTime())&&stamp.getTime()<=previous.getTime())
       return NextResponse.json({ok:true,ignored:"stale_change"});
+    if(stamp.getTime()<new Date(current.updated_at).getTime()-30000)return NextResponse.json({ok:true,ignored:"core_is_newer"});
     if(change.status==="cancelled"){
       await sql`
         update calendar_core.calendar_events
