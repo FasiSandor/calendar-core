@@ -39,6 +39,7 @@ export async function POST(req:NextRequest){
     if(current.status!=="active"||current.sync_state==="delete_error"||current.sync_state==="deleted")
       return NextResponse.json({ok:true,ignored:"deletion_pending_or_inactive"});
     const stamp=change.updated?new Date(change.updated):null;
+    if(!stamp)return NextResponse.json({error:"missing_updated"},{status:400});
     if(stamp&&Number.isNaN(stamp.getTime()))return NextResponse.json({error:"invalid_updated"},{status:400});
     const previous=typeof current.metadata?.google_inbound_updated==="string"
       ?new Date(current.metadata.google_inbound_updated):null;
@@ -48,7 +49,7 @@ export async function POST(req:NextRequest){
       await sql`
         update calendar_core.calendar_events
         set status='deleted',deleted_at=now(),updated_at=now(),version=version+1,
-          metadata=coalesce(metadata,'{}'::jsonb)||${JSON.stringify({google_inbound_updated:stamp?.toISOString()||new Date().toISOString(),google_deleted:true})}::jsonb
+          metadata=coalesce(metadata,'{}'::jsonb)||${JSON.stringify({google_inbound_updated:stamp.toISOString(),google_deleted:true})}::jsonb
         where id=${current.id} and status='active'
       `;
       await sql`
@@ -72,7 +73,7 @@ export async function POST(req:NextRequest){
       update calendar_core.calendar_events
       set title=${title},location=${location},note=${note},all_day=${allDay},
         event_date=${day},starts_at=${startAt},ends_at=${endAt},
-        metadata=coalesce(metadata,'{}'::jsonb)||${JSON.stringify({google_inbound_updated:stamp?.toISOString()||new Date().toISOString()})}::jsonb,
+        metadata=coalesce(metadata,'{}'::jsonb)||${JSON.stringify({google_inbound_updated:stamp.toISOString()})}::jsonb,
         updated_at=now(),version=version+1
       where id=${current.id} and status='active'
     `;
