@@ -25,9 +25,9 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
         title=${r.title}, starts_at=${r.starts_at}, ends_at=${r.ends_at},
         event_date=${r.event_date}, all_day=${r.all_day}, timezone=${r.timezone},
         category=${r.category}, location=${r.location}, note=${r.note},
-        source_app=${r.source_app}, source_record_id=${r.source_record_id},
+        source_app=coalesce(${r.source_app},source_app), source_record_id=coalesce(${r.source_record_id},source_record_id),
         google_event_id=coalesce(${r.google_event_id},google_event_id), dedupe_key=${r.dedupe_key},
-        metadata=${JSON.stringify(r.metadata)}::jsonb,
+        metadata=coalesce(metadata,'{}'::jsonb)||${JSON.stringify(r.metadata)}::jsonb,
         updated_at=now(),
         version=version+1
       where id=${id} and status='active'
