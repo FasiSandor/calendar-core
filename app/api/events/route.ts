@@ -53,8 +53,19 @@ export async function GET(req:NextRequest){
       select *
       from calendar_core.calendar_events
       where status='active'
-        and (${from}::timestamptz is null or coalesce(starts_at,event_date::timestamptz) >= ${from}::timestamptz)
-        and (${to}::timestamptz is null or coalesce(starts_at,event_date::timestamptz) < ${to}::timestamptz)
+        and (
+          (
+            (${from}::timestamptz is null or coalesce(starts_at,event_date::timestamptz) >= ${from}::timestamptz)
+            and (${to}::timestamptz is null or coalesce(starts_at,event_date::timestamptz) < ${to}::timestamptz)
+          )
+          or (
+            event_date is not null and all_day=true
+            and metadata->>'repeat'='yearly'
+            and ${from}::timestamptz is not null and ${to}::timestamptz is not null
+            and event_date < (${to}::timestamptz at time zone 'Europe/Budapest')::date
+            and event_date >= ((${from}::timestamptz at time zone 'Europe/Budapest')::date - interval '20 years')::date
+          )
+        )
       order by coalesce(starts_at,event_date::timestamptz), created_at
     `;
     return NextResponse.json({items:rows});
