@@ -70,6 +70,15 @@ export async function DELETE(req:NextRequest,{params}:{params:Promise<{id:string
     const current=await sql`select * from calendar_core.calendar_events where id=${id} and status='active' limit 1`;
     if(!current[0])return NextResponse.json({error:"not_found"},{status:404});
     const g:any=await googleDelete(String(id),current[0].google_event_id||null);
+    if(!g?.ok){
+      await sql`
+        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
+        values(${id},'google',${String(current[0].google_event_id||("pending:"+id))},'primary',null,'delete_error',
+          ${JSON.stringify({error:g?.error||"google_delete_failed"})}::jsonb,now())
+        on conflict(event_id,provider) do update set sync_state='delete_error',metadata=excluded.metadata,updated_at=now()
+      `;
+      return NextResponse.json({error:"google_delete_failed",retryable:true},{status:503});
+    }
     const rows=await sql`
       update calendar_core.calendar_events
       set status='deleted',deleted_at=now(),updated_at=now(),version=version+1
@@ -77,16 +86,7 @@ export async function DELETE(req:NextRequest,{params}:{params:Promise<{id:string
       returning id
     `;
     if(!rows[0])return NextResponse.json({error:"not_found"},{status:404});
-    if(g?.ok){
-      await sql`update calendar_core.calendar_sync_links set sync_state='deleted',updated_at=now() where event_id=${id} and provider='google'`;
-    }else{
-      await sql`
-        insert into calendar_core.calendar_sync_links(event_id,provider,external_id,calendar_id,last_synced_at,sync_state,metadata,updated_at)
-        values(${id},'google',${String(current[0].google_event_id||("pending:"+id))},'primary',null,'delete_error',
-          ${JSON.stringify({error:g?.error||"google_delete_failed"})}::jsonb,now())
-        on conflict(event_id,provider) do update set sync_state='delete_error',metadata=excluded.metadata,updated_at=now()
-      `;
-    }
+    await sql`update calendar_core.calendar_sync_links set sync_state='deleted',updated_at=now() where event_id=${id} and provider='google'`;
     return new NextResponse(null,{status:204});
   }catch(e:any){return NextResponse.json({error:e?.message||"database_error"},{status:500})}
 }
