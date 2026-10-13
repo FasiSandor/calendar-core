@@ -16,7 +16,7 @@ export async function googleUpsert(event:CoreEventRow){
     const r=await fetch(endpoint,{
       method:"POST",
       headers:{"content-type":"application/json","x-calendar-core-key":k},
-      body:JSON.stringify({action:"calendar_core_upsert",event,preferred_account_email:preferredGoogleAccount}),
+      body:JSON.stringify({action:"calendar_core_upsert",event,account_email:preferredGoogleAccount}),
       cache:"no-store"
     });
     const j=await r.json().catch(()=>({}));
