@@ -3,6 +3,8 @@ type CoreEventRow=Record<string,any>;
 const endpoint=process.env.GOOGLE_SYNC_BRIDGE_URL||
   "https://syzpkrypgcwiyzzzlzzi.supabase.co/functions/v1/naptar-gmail-realtime";
 
+const preferredGoogleAccount="fsanyi73@gmail.com";
+
 function key(){
   return process.env.CALENDAR_CORE_API_KEY||"";
 }
@@ -14,7 +16,7 @@ export async function googleUpsert(event:CoreEventRow){
     const r=await fetch(endpoint,{
       method:"POST",
       headers:{"content-type":"application/json","x-calendar-core-key":k},
-      body:JSON.stringify({action:"calendar_core_upsert",event}),
+      body:JSON.stringify({action:"calendar_core_upsert",event,preferred_account_email:preferredGoogleAccount}),
       cache:"no-store"
     });
     const j=await r.json().catch(()=>({}));
