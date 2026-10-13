@@ -11,7 +11,7 @@ export async function GET(req:NextRequest){
       select
         count(*) filter (where e.status='active')::int as active_events,
         count(*) filter (where e.status='active' and l.sync_state='linked')::int as linked,
-        count(*) filter (where e.status='active' and coalesce(l.sync_state,'')<>'linked')::int as pending_or_error,
+        count(*) filter (where e.status='active' and coalesce(l.sync_state,'') not in ('linked','delete_error','deleted'))::int as pending_or_error,
         count(*) filter (where e.status='active' and e.source_app='teleki-workplan')::int as workplan_events,
         count(*) filter (where e.status='active' and e.source_app='teleki-workplan' and l.sync_state='linked')::int as workplan_linked
       from calendar_core.calendar_events e
