@@ -21,6 +21,9 @@ export async function googleUpsert(event:CoreEventRow){
     });
     const j=await r.json().catch(()=>({}));
     if(!r.ok)return {ok:false,error:String(j?.message||j?.error||("http_"+r.status)),status:r.status};
+    if(String(j?.account_email||"").toLowerCase()!==preferredGoogleAccount){
+      return {ok:false,error:"google_destination_account_mismatch",status:502};
+    }
     return {ok:true,...j};
   }catch(e:any){
     return {ok:false,error:String(e?.message||"google_bridge_unreachable")};
