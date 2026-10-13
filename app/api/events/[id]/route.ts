@@ -26,7 +26,7 @@ export async function PATCH(req:NextRequest,{params}:{params:Promise<{id:string}
         event_date=${r.event_date}, all_day=${r.all_day}, timezone=${r.timezone},
         category=${r.category}, location=${r.location}, note=${r.note},
         source_app=${r.source_app}, source_record_id=${r.source_record_id},
-        google_event_id=${r.google_event_id}, dedupe_key=${r.dedupe_key},
+        google_event_id=coalesce(${r.google_event_id},google_event_id), dedupe_key=${r.dedupe_key},
         metadata=${JSON.stringify(r.metadata)}::jsonb,
         updated_at=now(),
         version=version+1
