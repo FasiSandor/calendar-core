@@ -108,7 +108,12 @@ export async function POST(req:NextRequest){
       where dedupe_key=${r.dedupe_key} and status='active'
       limit 1
     `;
-    if(dup[0])return NextResponse.json({...dup[0],deduplicated:true},{status:200});
+    if(dup[0]){
+      // An earlier DB save can succeed while Google delivery fails.
+      // A repeat request must retry the Google bridge rather than pretending it synced.
+      const synced=dup[0].google_event_id?dup[0]:await syncGoogle(sql,dup[0]);
+      return NextResponse.json({...synced,deduplicated:true},{status:200});
+    }
 
     const created=await sql`
       insert into calendar_core.calendar_events
