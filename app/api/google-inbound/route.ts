@@ -63,7 +63,7 @@ export async function POST(req:NextRequest){
     const startAt=allDay?null:change.start?.dateTime;
     const endAt=allDay?null:change.end?.dateTime;
     const day=allDay?change.start?.date:null;
-    if(allDay?!/^\\d{4}-\\d{2}-\\d{2}$/.test(day||""):(!startAt||!endAt||
+    if(allDay?!/^\d{4}-\d{2}-\d{2}$/.test(day||""):(!startAt||!endAt||
       !Number.isFinite(Date.parse(startAt))||!Number.isFinite(Date.parse(endAt))||
       Date.parse(endAt)<=Date.parse(startAt)))
       return NextResponse.json({error:"invalid_event_time"},{status:400});
