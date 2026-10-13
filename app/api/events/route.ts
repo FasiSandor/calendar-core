@@ -82,7 +82,7 @@ export async function POST(req:NextRequest){
             title=${r.title}, starts_at=${r.starts_at}, ends_at=${r.ends_at},
             event_date=${r.event_date}, all_day=${r.all_day}, timezone=${r.timezone},
             category=${r.category}, location=${r.location}, note=${r.note},
-            google_event_id=${r.google_event_id}, dedupe_key=${r.dedupe_key},
+            google_event_id=coalesce(${r.google_event_id},google_event_id), dedupe_key=${r.dedupe_key},
             metadata=${JSON.stringify(r.metadata)}::jsonb
           where id=${rows[0].id}
           returning *
